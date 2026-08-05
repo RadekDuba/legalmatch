@@ -29,7 +29,7 @@ This application uses a **lightweight data join architecture** designed for high
 ```
 
 ### Key Technical Benefits:
-- **Ultra-Fast Payload (241 KB vs 28.9 MB)**: The JSON payload (`map_data.json`) contains only raw business records (`zip`, `county`, `region`, `supercategory`, `id_region`) matching the Excel source directly. All redundant geographic coordinates (`lat`/`lon`) and 525+ heavy GeoJSON ZIP polygons were eliminated.
+- **Ultra-Fast Payload (241 KB)**: The JSON payload (`map_data.json`) contains raw business records (`zip`, `county`, `region`, `supercategory`, `id_region`) matching the Excel source directly, keeping network transfer minimal.
 - **Client-Side Vector Tile Matching**: MapTiler vector tiles stream county boundary polygons directly from MapTiler CDN vector servers. The application dynamically links selected counties from the dataset to the vector layer on the fly.
 
 ---
