@@ -379,6 +379,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   function formatDisplayName(str) {
     if (!str) return '';
     return str
+      .replace('Business - Litigation', 'Business Litigation')
       .split(' ')
       .map(w => w.charAt(0).toUpperCase() + w.slice(1))
       .join(' ')
