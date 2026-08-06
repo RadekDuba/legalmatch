@@ -49,13 +49,26 @@
     <main class="main-content">
       <!-- Left Sidebar Control Panel -->
       <aside class="sidebar">
-        <!-- Allocation & State Selectors -->
+        <!-- Allocation, Supercategory & State Selectors -->
         <div class="form-group">
-          <label for="allocation-select">Allocation</label>
+          <label for="allocation-select">Territory Preset</label>
           <select id="allocation-select">
-            <option value="metro">Colorado - Metro Allocation</option>
-            <option value="statewide">Colorado - Statewide Complete</option>
+            <option value="metro">Colorado - Metro Allocation (11 Counties)</option>
+            <option value="top10">Top 10 High-Volume Counties (92% Cases)</option>
+            <option value="statewide">Colorado - Statewide Complete (64 Counties)</option>
             <option value="custom">Custom Territory Allocation</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="supercategory-select">Legal Supercategory</label>
+          <select id="supercategory-select">
+            <option value="ALL">All Practice Areas (23,078 Cases)</option>
+            <option value="Family Law">Family Law (9,475 Cases)</option>
+            <option value="Employment and Labor Law">Employment & Labor Law (6,209 Cases)</option>
+            <option value="Wills, Trusts and Estates">Wills, Trusts & Estates (3,814 Cases)</option>
+            <option value="Bankruptcy, Banking and Credit">Bankruptcy & Credit (2,185 Cases)</option>
+            <option value="Business - Litigation">Business Litigation (1,395 Cases)</option>
           </select>
         </div>
 
@@ -66,28 +79,36 @@
           </select>
         </div>
 
-        <!-- Summary Metrics Card -->
+        <!-- Dynamic Case Intelligence Summary Card -->
         <div class="summary-card">
-          <h3 class="summary-title">Summary</h3>
+          <h3 class="summary-title">Territory Summary</h3>
+          <div class="summary-row highlight-row">
+            <span>Est. Total Cases</span>
+            <span class="summary-val highlight" id="sum-total-cases">17,455 / 23,078</span>
+          </div>
           <div class="summary-row">
             <span>Selected Counties</span>
             <span class="summary-val" id="sum-counties">11 / 64</span>
           </div>
           <div class="summary-row">
             <span>Selected ZIP Codes</span>
-            <span class="summary-val highlight" id="sum-cases">330 / 659</span>
+            <span class="summary-val" id="sum-cases">330 / 659</span>
           </div>
           <div class="summary-row">
             <span>ZIP Coverage</span>
-            <span class="summary-val" id="sum-attorneys">50.1%</span>
+            <span class="summary-val" id="sum-coverage">50.1%</span>
           </div>
           <div class="summary-row">
-            <span>Region Name</span>
-            <span class="summary-val" id="sum-revenue">Colorado area</span>
+            <span>Avg Cases / ZIP</span>
+            <span class="summary-val" id="sum-avg-cases">52.9</span>
           </div>
-          <div class="summary-row">
-            <span>Supercategory</span>
-            <span class="summary-val" id="sum-pop">Business - Litigation</span>
+        </div>
+
+        <!-- Supercategory Breakdown Visual Card -->
+        <div class="breakdown-card" id="supercategory-breakdown-card">
+          <h3 class="breakdown-title">Case Breakdown by Practice Area</h3>
+          <div class="breakdown-list" id="breakdown-list">
+            <!-- Populated dynamically by app.js -->
           </div>
         </div>
 
@@ -112,7 +133,7 @@
         <!-- Bottom Sidebar Action Buttons -->
         <div class="sidebar-actions">
           <button class="btn-save" id="btn-save-allocation">Save Allocation</button>
-          <button class="btn-cancel" id="btn-cancel-allocation">Cancel</button>
+          <button class="btn-cancel" id="btn-cancel-allocation">Reset Defaults</button>
         </div>
       </aside>
 
@@ -126,15 +147,13 @@
           </div>
 
           <div class="map-actions-group">
+            <div class="view-mode-toggle">
+              <button class="mode-btn active" id="btn-mode-territory" title="Territory Allocation View">Territories</button>
+              <button class="mode-btn" id="btn-mode-choropleth" title="Case Density Heatmap View">Case Density</button>
+            </div>
             <div class="dropdown-btn-wrapper">
               <button class="map-action-btn" id="btn-alloc-settings">
                 Allocation Settings
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
-              </button>
-            </div>
-            <div class="dropdown-btn-wrapper">
-              <button class="map-action-btn" id="btn-view-options">
-                View Options
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
               </button>
             </div>
@@ -154,17 +173,32 @@
         </div>
 
         <!-- Top Right Floating Map Legend -->
-        <div class="map-legend">
-          <div class="legend-item">
-            <span class="color-box selected"></span>
-            <span>Selected (<span id="legend-selected-count">11</span>)</span>
+        <div class="map-legend" id="map-legend">
+          <div class="legend-content-territory">
+            <div class="legend-item">
+              <span class="color-box selected"></span>
+              <span>Selected (<span id="legend-selected-count">11</span>)</span>
+            </div>
+            <div class="legend-item">
+              <span class="color-box unselected"></span>
+              <span>Not Selected</span>
+            </div>
+            <div class="legend-subtext" id="legend-subtext">Label = County / Total Cases</div>
           </div>
-          <div class="legend-item">
-            <span class="color-box unselected"></span>
-            <span>Not Selected</span>
+          <div class="legend-content-choropleth" style="display: none;">
+            <div class="legend-title">Case Volume Density</div>
+            <div class="choropleth-gradient-bar"></div>
+            <div class="choropleth-labels">
+              <span>0</span>
+              <span>1k</span>
+              <span>4k</span>
+              <span>8k+</span>
+            </div>
           </div>
-          <div class="legend-subtext">Number = ZIP Code Count</div>
         </div>
+
+        <!-- Hover Tooltip Element -->
+        <div class="map-tooltip" id="map-tooltip"></div>
 
         <!-- Map Container -->
         <div id="map"></div>
@@ -174,14 +208,16 @@
     <!-- Bottom Status Footer Bar -->
     <footer class="bottom-footer">
       <div class="footer-left">
-        Click a county to add/remove from allocation
+        Click a county to allocate/deallocate territory. Hover for case breakdown.
       </div>
       <div class="footer-right">
-        <span>Selected ZIP Codes: <strong id="foot-cases">330 / 659</strong></span>
+        <span>Est. Cases: <strong id="foot-cases">17,455 / 23,078</strong></span>
         <span class="divider">|</span>
-        <span>Selected Counties: <strong id="foot-attorneys">11 / 64</strong></span>
+        <span>Selected Counties: <strong id="foot-counties">11 / 64</strong></span>
         <span class="divider">|</span>
-        <span>ZIP Coverage: <strong id="foot-revenue">50.1%</strong></span>
+        <span>ZIP Codes: <strong id="foot-zips">330 / 659</strong></span>
+        <span class="divider">|</span>
+        <span>Coverage: <strong id="foot-coverage">50.1%</strong></span>
       </div>
     </footer>
   </div>

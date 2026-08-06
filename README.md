@@ -54,8 +54,9 @@ This application uses a **lightweight data join architecture** designed for high
 ├── index.html                             # Main HTML SPA dashboard markup
 ├── styles.css                             # Slate & Dataviz UI styling system
 ├── app.js                                 # MapTiler SDK controller & state management
-├── map_data.json                          # Lightweight JSON dataset (659 ZIP records + county shapes)
-├── region_county_zip 2026-08-04T0829.xlsx # Original Excel raw source data
+├── map_data.json                          # Enriched minified dataset (3,295 case records + county shapes)
+├── lm region 2026-08-05T1501.xlsx          # 2026 LegalMatch case count & territory source dataset
+├── region_county_zip 2026-08-04T0829.xlsx # Legacy territory source data
 └── README.md                              # Project documentation
 ```
 
