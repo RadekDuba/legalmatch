@@ -375,6 +375,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  // Helper to format clean display strings
+  function formatDisplayName(str) {
+    if (!str) return '';
+    return str
+      .split(' ')
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ')
+      .replace(/\bAnd\b/g, '&');
+  }
+
   // Render Multi-Select Dropdown — Supercategories
   function renderSupercategoryDropdown() {
     if (!mapData || !scMsList) return;
@@ -387,12 +397,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       scMsLabel.textContent = `All Practice Areas (${allCount})`;
     } else if (selCount === 0) {
       scMsLabel.textContent = `0 Practice Areas Selected`;
+    } else if (selCount === 1) {
+      const singleSC = Array.from(selectedSupercategories)[0];
+      scMsLabel.textContent = formatDisplayName(singleSC);
     } else {
       scMsLabel.textContent = `${selCount} of ${allCount} Practice Areas`;
     }
 
     mapData.supercategories.forEach(sc => {
-      // Compute total cases for this supercategory across active regions
       let totalCasesSC = 0;
       mapData.records.forEach(r => {
         if (r.supercategory === sc && selectedRegions.has(r.region)) {
@@ -401,12 +413,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
 
       const isChecked = selectedSupercategories.has(sc);
+      const safeId = 'ms-sc-' + sc.replace(/[^a-zA-Z0-9]/g, '-');
       const item = document.createElement('div');
       item.className = 'ms-item';
       item.innerHTML = `
         <div class="ms-item-left">
-          <input type="checkbox" id="ms-sc-${sc.replace(/\s+/g, '-')}" ${isChecked ? 'checked' : ''}>
-          <label for="ms-sc-${sc.replace(/\s+/g, '-')}" class="ms-item-label">${sc}</label>
+          <input type="checkbox" id="${safeId}" ${isChecked ? 'checked' : ''}>
+          <label for="${safeId}" class="ms-item-label">${formatDisplayName(sc)}</label>
         </div>
         <span class="ms-item-count">${totalCasesSC.toLocaleString()}</span>
       `;
@@ -422,6 +435,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           selectedSupercategories.add(sc);
         }
         renderSupercategoryDropdown();
+        renderRegionDropdown();
         updateMapAndSidebar();
       });
 
@@ -442,12 +456,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       rgMsLabel.textContent = `All Regions (${allCount})`;
     } else if (selCount === 0) {
       rgMsLabel.textContent = `0 Regions Selected`;
+    } else if (selCount === 1) {
+      const singleRg = Array.from(selectedRegions)[0];
+      rgMsLabel.textContent = formatDisplayName(singleRg);
     } else {
       rgMsLabel.textContent = `${selCount} of ${allCount} Regions`;
     }
 
     allRegionsList.forEach(reg => {
-      // Compute total cases for this region across active supercategories
       let totalCasesReg = 0;
       mapData.records.forEach(r => {
         if (r.region === reg && selectedSupercategories.has(r.supercategory)) {
@@ -456,12 +472,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
 
       const isChecked = selectedRegions.has(reg);
+      const safeId = 'ms-rg-' + reg.replace(/[^a-zA-Z0-9]/g, '-');
       const item = document.createElement('div');
       item.className = 'ms-item';
       item.innerHTML = `
         <div class="ms-item-left">
-          <input type="checkbox" id="ms-rg-${reg.replace(/\s+/g, '-')}" ${isChecked ? 'checked' : ''}>
-          <label for="ms-rg-${reg.replace(/\s+/g, '-')}" class="ms-item-label">${reg}</label>
+          <input type="checkbox" id="${safeId}" ${isChecked ? 'checked' : ''}>
+          <label for="${safeId}" class="ms-item-label">${formatDisplayName(reg)}</label>
         </div>
         <span class="ms-item-count">${totalCasesReg.toLocaleString()}</span>
       `;
