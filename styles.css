@@ -819,3 +819,159 @@ body, html {
   margin: 6px 0;
 }
 
+/* Multi-Select Custom Dropdown Styling */
+.multiselect-dropdown {
+  position: relative;
+  width: 100%;
+}
+
+.ms-btn {
+  width: 100%;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.ms-btn:hover {
+  border-color: var(--accent-blue);
+  background: #f8fafc;
+}
+
+.ms-btn.open {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+.ms-btn.open .ms-arrow {
+  transform: rotate(180deg);
+}
+
+.ms-label {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 240px;
+}
+
+.ms-arrow {
+  transition: transform 0.2s ease;
+  color: var(--text-secondary);
+}
+
+.ms-popover {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  width: 100%;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+  z-index: 1500;
+  overflow: hidden;
+  flex-direction: column;
+}
+
+.ms-popover.open {
+  display: flex;
+}
+
+.ms-popover-header {
+  padding: 8px 10px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.76rem;
+}
+
+.ms-popover-title {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.ms-popover-actions {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.ms-action-link {
+  background: transparent;
+  border: none;
+  color: var(--accent-blue);
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.ms-action-link:hover {
+  text-decoration: underline;
+}
+
+.ms-popover-list {
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 4px 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ms-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: background 0.1s ease;
+  user-select: none;
+}
+
+.ms-item:hover {
+  background: #f1f5f9;
+}
+
+.ms-item-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.ms-item-left input[type="checkbox"] {
+  cursor: pointer;
+  accent-color: var(--accent-blue);
+}
+
+.ms-item-label {
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ms-item-count {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+

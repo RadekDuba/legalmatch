@@ -3,10 +3,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   let mapData = null;
   let map = null;
   let currentSearchQuery = '';
-  let currentSupercategory = 'ALL'; // 'ALL' or specific supercategory name
   let currentViewMode = 'territory'; // 'territory' or 'choropleth'
 
-  // Presets definition
+  // Multi-Select Sets
+  let selectedSupercategories = new Set();
+  let selectedRegions = new Set();
+  let selectedCounties = new Set();
+
+  // Preset definitions
   const presetMetro = new Set([
     'Adams', 'Arapahoe', 'Boulder', 'Broomfield', 'Denver',
     'Douglas', 'Jefferson', 'Larimer', 'Gilpin', 'El Paso', 'Weld'
@@ -17,20 +21,36 @@ document.addEventListener('DOMContentLoaded', async () => {
     'Adams', 'Larimer', 'Boulder', 'Pueblo', 'Mesa'
   ]);
 
-  let selectedCounties = new Set(presetMetro);
+  selectedCounties = new Set(presetMetro);
 
   // DOM Elements
   const allocationSelectEl = document.getElementById('allocation-select');
-  const supercategorySelectEl = document.getElementById('supercategory-select');
   const countyCheckboxListEl = document.getElementById('county-checkbox-list');
   const countySearchInputEl = document.getElementById('county-search-input');
   
+  // Multi-Select UI Elements — Supercategories
+  const scMsBtn = document.getElementById('supercategory-ms-btn');
+  const scMsLabel = document.getElementById('supercategory-ms-label');
+  const scMsPopover = document.getElementById('supercategory-ms-popover');
+  const scMsList = document.getElementById('supercategory-ms-list');
+  const scSelectAllBtn = document.getElementById('sc-select-all');
+  const scClearAllBtn = document.getElementById('sc-clear-all');
+
+  // Multi-Select UI Elements — Regions
+  const rgMsBtn = document.getElementById('region-ms-btn');
+  const rgMsLabel = document.getElementById('region-ms-label');
+  const rgMsPopover = document.getElementById('region-ms-popover');
+  const rgMsList = document.getElementById('region-ms-list');
+  const rgSelectAllBtn = document.getElementById('rg-select-all');
+  const rgClearAllBtn = document.getElementById('rg-clear-all');
+
   // Summary Metrics Elements
   const sumTotalCasesEl = document.getElementById('sum-total-cases');
+  const sumCategoriesCountEl = document.getElementById('sum-categories-count');
+  const sumRegionsCountEl = document.getElementById('sum-regions-count');
   const sumCountiesEl = document.getElementById('sum-counties');
   const sumCasesEl = document.getElementById('sum-cases');
   const sumCoverageEl = document.getElementById('sum-coverage');
-  const sumAvgCasesEl = document.getElementById('sum-avg-cases');
   const breakdownListEl = document.getElementById('breakdown-list');
   
   // Badges & Legend
@@ -81,7 +101,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     map = new maptilersdk.Map({
       container: 'map',
       style: maptilersdk.MapStyle.DATAVIZ.LIGHT,
-      center: [-105.5, 39.0], // Centered over Colorado
+      center: [-105.5, 39.0],
       zoom: 6.8,
       navigationControl: false,
       geolocateControl: false,
@@ -111,6 +131,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       const resp = await fetch('map_data.json');
       mapData = await resp.json();
 
+      // Initialize all supercategories and regions selected by default
+      selectedSupercategories = new Set(mapData.supercategories);
+      const allRegions = new Set(mapData.records.map(r => r.region).filter(Boolean));
+      selectedRegions = new Set(allRegions);
+
+      renderSupercategoryDropdown();
+      renderRegionDropdown();
       updateSummaryMetrics();
       renderCountyCheckboxList();
       renderSupercategoryBreakdown();
@@ -123,14 +150,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // Calculate county case count given current supercategory filter
-  function getCountyCases(countyName) {
-    if (!mapData || !mapData.county_stats[countyName]) return 0;
-    const stats = mapData.county_stats[countyName];
-    if (currentSupercategory === 'ALL') {
-      return stats.total_cases;
-    }
-    return stats.cases_by_supercategory[currentSupercategory] || 0;
+  // Calculate county case count matching active selected Regions AND Supercategories
+  function getCountyFilteredCases(countyName) {
+    if (!mapData) return 0;
+    let sum = 0;
+    mapData.records.forEach(r => {
+      if (r.county === countyName) {
+        if (selectedSupercategories.has(r.supercategory) && selectedRegions.has(r.region)) {
+          sum += r.cases;
+        }
+      }
+    });
+    return sum;
+  }
+
+  // Get total cases for supercategory in county given active selected regions
+  function getCountySupercategoryCases(countyName, scName) {
+    if (!mapData) return 0;
+    let sum = 0;
+    mapData.records.forEach(r => {
+      if (r.county === countyName && r.supercategory === scName && selectedRegions.has(r.region)) {
+        sum += r.cases;
+      }
+    });
+    return sum;
   }
 
   // Process GeoJSON features for Vector Fill Layer
@@ -142,7 +185,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       feat.id = idx;
       const cName = feat.properties.name;
       feat.properties.isSelected = selectedCounties.has(cName);
-      feat.properties.filteredCases = getCountyCases(cName);
+      feat.properties.filteredCases = getCountyFilteredCases(cName);
       return feat;
     });
 
@@ -152,14 +195,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
   }
 
-  // Process Labels GeoJSON for Symbol Text Layer
+  // Process Labels GeoJSON for Symbol Text Layer (Directly showing Case Counts on Map!)
   function getCountyLabelsGeoJSON() {
     if (!mapData || !mapData.counties_geojson) return { type: 'FeatureCollection', features: [] };
 
     const features = mapData.counties_geojson.features.map((f) => {
       const p = f.properties;
       const cName = p.name;
-      const cCases = getCountyCases(cName);
+      const cCases = getCountyFilteredCases(cName);
       return {
         type: 'Feature',
         geometry: {
@@ -197,12 +240,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       data: getProcessedCountyGeoJSON()
     });
 
-    // Fill Paint Expression based on View Mode
     const fillStyleTerritory = [
       'case',
       ['boolean', ['get', 'isSelected'], false],
-      '#3b82f6', // Active Blue
-      '#e5e7eb'  // Light Gray
+      '#3b82f6',
+      '#e5e7eb'
     ];
 
     const fillStyleChoropleth = [
@@ -231,7 +273,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
 
-    // Outline Layer
     map.addLayer({
       id: 'county-border-layer',
       type: 'line',
@@ -242,7 +283,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
 
-    // Labels Source & Symbol Layer
+    // Symbol Text Layer — Prominently displaying County Name + Case Counts directly on Map!
     map.addSource('county-labels-source', {
       type: 'geojson',
       data: getCountyLabelsGeoJSON()
@@ -253,9 +294,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       type: 'symbol',
       source: 'county-labels-source',
       layout: {
-        'text-field': ['concat', ['get', 'name'], '\n', ['to-string', ['get', 'filteredCases']], ' cases'],
+        'text-field': ['concat', ['get', 'name'], '\n', ['to-string', ['get', 'filteredCases']], ' Cases'],
         'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-        'text-size': 11,
+        'text-size': 11.5,
         'text-allow-overlap': false,
         'text-ignore-placement': false
       },
@@ -264,19 +305,19 @@ document.addEventListener('DOMContentLoaded', async () => {
           'case',
           ['boolean', ['get', 'isSelected'], false],
           '#ffffff',
-          '#334155'
+          '#1e293b'
         ],
         'text-halo-color': [
           'case',
           ['boolean', ['get', 'isSelected'], false],
-          'rgba(0, 0, 0, 0.4)',
+          'rgba(0, 0, 0, 0.45)',
           'rgba(255, 255, 255, 0.95)'
         ],
-        'text-halo-width': 1.2
+        'text-halo-width': 1.4
       }
     });
 
-    // Interactive Map Event Listeners
+    // Map Event Listeners
     map.on('click', 'county-fill-layer', (e) => {
       if (e.features.length > 0) {
         const cName = e.features[0].properties.name;
@@ -292,21 +333,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         const stats = mapData.county_stats[cName];
         if (!stats) return;
 
-        const totalCases = stats.total_cases;
-        const filteredCases = getCountyCases(cName);
+        const filteredCases = getCountyFilteredCases(cName);
         const zips = stats.zip_count;
 
         let breakdownHtml = '';
-        if (stats.cases_by_supercategory) {
-          Object.entries(stats.cases_by_supercategory).forEach(([sc, count]) => {
+        mapData.supercategories.forEach(sc => {
+          if (selectedSupercategories.has(sc)) {
+            const scCases = getCountySupercategoryCases(cName, sc);
             breakdownHtml += `
               <div class="tooltip-row">
                 <span>${sc.replace('and', '&')}</span>
-                <strong>${count.toLocaleString()}</strong>
+                <strong>${scCases.toLocaleString()}</strong>
               </div>
             `;
-          });
-        }
+          }
+        });
 
         mapTooltipEl.innerHTML = `
           <div class="tooltip-title">${cName} County</div>
@@ -315,7 +356,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             <strong>${zips}</strong>
           </div>
           <div class="tooltip-row">
-            <span>Est. Cases (${currentSupercategory === 'ALL' ? 'Total' : 'Selected'})</span>
+            <span>Est. Combined Cases</span>
             <strong>${filteredCases.toLocaleString()}</strong>
           </div>
           <div class="tooltip-divider"></div>
@@ -332,6 +373,125 @@ document.addEventListener('DOMContentLoaded', async () => {
       map.getCanvas().style.cursor = '';
       mapTooltipEl.style.display = 'none';
     });
+  }
+
+  // Render Multi-Select Dropdown — Supercategories
+  function renderSupercategoryDropdown() {
+    if (!mapData || !scMsList) return;
+    scMsList.innerHTML = '';
+
+    const allCount = mapData.supercategories.length;
+    const selCount = selectedSupercategories.size;
+
+    if (selCount === allCount) {
+      scMsLabel.textContent = `All Practice Areas (${allCount})`;
+    } else if (selCount === 0) {
+      scMsLabel.textContent = `0 Practice Areas Selected`;
+    } else {
+      scMsLabel.textContent = `${selCount} of ${allCount} Practice Areas`;
+    }
+
+    mapData.supercategories.forEach(sc => {
+      // Compute total cases for this supercategory across active regions
+      let totalCasesSC = 0;
+      mapData.records.forEach(r => {
+        if (r.supercategory === sc && selectedRegions.has(r.region)) {
+          totalCasesSC += r.cases;
+        }
+      });
+
+      const isChecked = selectedSupercategories.has(sc);
+      const item = document.createElement('div');
+      item.className = 'ms-item';
+      item.innerHTML = `
+        <div class="ms-item-left">
+          <input type="checkbox" id="ms-sc-${sc.replace(/\s+/g, '-')}" ${isChecked ? 'checked' : ''}>
+          <label for="ms-sc-${sc.replace(/\s+/g, '-')}" class="ms-item-label">${sc}</label>
+        </div>
+        <span class="ms-item-count">${totalCasesSC.toLocaleString()}</span>
+      `;
+
+      item.addEventListener('click', (e) => {
+        if (e.target.tagName !== 'INPUT') {
+          const cb = item.querySelector('input');
+          cb.checked = !cb.checked;
+        }
+        if (selectedSupercategories.has(sc)) {
+          selectedSupercategories.delete(sc);
+        } else {
+          selectedSupercategories.add(sc);
+        }
+        renderSupercategoryDropdown();
+        updateMapAndSidebar();
+      });
+
+      scMsList.appendChild(item);
+    });
+  }
+
+  // Render Multi-Select Dropdown — Region Name
+  function renderRegionDropdown() {
+    if (!mapData || !rgMsList) return;
+    rgMsList.innerHTML = '';
+
+    const allRegionsList = sortedRegionsList();
+    const allCount = allRegionsList.length;
+    const selCount = selectedRegions.size;
+
+    if (selCount === allCount) {
+      rgMsLabel.textContent = `All Regions (${allCount})`;
+    } else if (selCount === 0) {
+      rgMsLabel.textContent = `0 Regions Selected`;
+    } else {
+      rgMsLabel.textContent = `${selCount} of ${allCount} Regions`;
+    }
+
+    allRegionsList.forEach(reg => {
+      // Compute total cases for this region across active supercategories
+      let totalCasesReg = 0;
+      mapData.records.forEach(r => {
+        if (r.region === reg && selectedSupercategories.has(r.supercategory)) {
+          totalCasesReg += r.cases;
+        }
+      });
+
+      const isChecked = selectedRegions.has(reg);
+      const item = document.createElement('div');
+      item.className = 'ms-item';
+      item.innerHTML = `
+        <div class="ms-item-left">
+          <input type="checkbox" id="ms-rg-${reg.replace(/\s+/g, '-')}" ${isChecked ? 'checked' : ''}>
+          <label for="ms-rg-${reg.replace(/\s+/g, '-')}" class="ms-item-label">${reg}</label>
+        </div>
+        <span class="ms-item-count">${totalCasesReg.toLocaleString()}</span>
+      `;
+
+      item.addEventListener('click', (e) => {
+        if (e.target.tagName !== 'INPUT') {
+          const cb = item.querySelector('input');
+          cb.checked = !cb.checked;
+        }
+        if (selectedRegions.has(reg)) {
+          selectedRegions.delete(reg);
+        } else {
+          selectedRegions.add(reg);
+        }
+        renderRegionDropdown();
+        renderSupercategoryDropdown();
+        updateMapAndSidebar();
+      });
+
+      rgMsList.appendChild(item);
+    });
+  }
+
+  function sortedRegionsList() {
+    if (!mapData) return [];
+    return sortedUnique(mapData.records.map(r => r.region).filter(Boolean));
+  }
+
+  function sortedUnique(arr) {
+    return Array.from(new Set(arr)).sort();
   }
 
   // Toggle County Selection
@@ -358,14 +518,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // Update Sidebar & Footer Metrics
+  // Update Sidebar Summary Metrics
   function updateSummaryMetrics() {
     if (!mapData) return;
 
     const count = selectedCounties.size;
     const totalCounties = mapData.counties_geojson.features.length; // 64
     
-    // Overall dataset stats
     let totalStateCases = 0;
     let selectedCases = 0;
     let selectedZips = 0;
@@ -373,7 +532,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     mapData.counties_geojson.features.forEach(f => {
       const cName = f.properties.name;
-      const cCases = getCountyCases(cName);
+      const cCases = getCountyFilteredCases(cName);
       totalStateCases += cCases;
 
       if (selectedCounties.has(cName)) {
@@ -383,14 +542,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     const coveragePct = ((selectedZips / totalStateZips) * 100).toFixed(1);
-    const avgCasesPerZip = selectedZips > 0 ? (selectedCases / selectedZips).toFixed(1) : '0';
 
-    // Update Summary Elements
     if (sumTotalCasesEl) sumTotalCasesEl.textContent = `${selectedCases.toLocaleString()} / ${totalStateCases.toLocaleString()}`;
+    if (sumCategoriesCountEl) sumCategoriesCountEl.textContent = `${selectedSupercategories.size} / ${mapData.supercategories.length} Areas`;
+    if (sumRegionsCountEl) sumRegionsCountEl.textContent = `${selectedRegions.size} / ${sortedRegionsList().length} Regions`;
     if (sumCountiesEl) sumCountiesEl.textContent = `${count} / ${totalCounties}`;
     if (sumCasesEl) sumCasesEl.textContent = `${selectedZips.toLocaleString()} / ${totalStateZips}`;
     if (sumCoverageEl) sumCoverageEl.textContent = `${coveragePct}%`;
-    if (sumAvgCasesEl) sumAvgCasesEl.textContent = avgCasesPerZip;
 
     if (selectedCountBadgeEl) selectedCountBadgeEl.textContent = count;
     if (badgeCountiesCountEl) badgeCountiesCountEl.textContent = `${count} Counties Selected`;
@@ -402,7 +560,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (footCoverageEl) footCoverageEl.textContent = `${coveragePct}%`;
   }
 
-  // Render Practice Area Breakdown Bars
+  // Render Sidebar Supercategory Distribution Breakdown
   function renderSupercategoryBreakdown() {
     if (!mapData || !breakdownListEl) return;
     breakdownListEl.innerHTML = '';
@@ -412,13 +570,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     let selTotal = 0;
     mapData.records.forEach(r => {
-      if (selectedCounties.has(r.county)) {
-        scTotals[r.supercategory] = (scTotals[r.supercategory] || 0) + r.cases;
-        selTotal += r.cases;
+      if (selectedCounties.has(r.county) && selectedRegions.has(r.region)) {
+        if (selectedSupercategories.has(r.supercategory)) {
+          scTotals[r.supercategory] = (scTotals[r.supercategory] || 0) + r.cases;
+          selTotal += r.cases;
+        }
       }
     });
 
     mapData.supercategories.forEach(sc => {
+      if (!selectedSupercategories.has(sc)) return;
       const cases = scTotals[sc] || 0;
       const pct = selTotal > 0 ? ((cases / selTotal) * 100).toFixed(1) : 0;
 
@@ -443,8 +604,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     countyCheckboxListEl.innerHTML = '';
 
     const sortedFeatures = [...mapData.counties_geojson.features].sort((a, b) => {
-      const casesA = getCountyCases(a.properties.name);
-      const casesB = getCountyCases(b.properties.name);
+      const casesA = getCountyFilteredCases(a.properties.name);
+      const casesB = getCountyFilteredCases(b.properties.name);
       return casesB - casesA;
     });
 
@@ -456,7 +617,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     filtered.forEach(f => {
       const cName = f.properties.name;
       const zCount = f.properties.zip_count;
-      const cCases = getCountyCases(cName);
+      const cCases = getCountyFilteredCases(cName);
       const isChecked = selectedCounties.has(cName);
 
       const item = document.createElement('div');
@@ -481,7 +642,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // Export Selected Territories to CSV
+  // Export Selected Multi-Select Allocations to CSV
   function exportAllocationCSV() {
     if (!mapData) return;
     let csvContent = 'data:text/csv;charset=utf-8,Zipcode,County,Region,Supercategory,Count_All_Cases\n';
@@ -489,7 +650,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let count = 0;
     mapData.records.forEach(r => {
       if (selectedCounties.has(r.county)) {
-        if (currentSupercategory === 'ALL' || r.supercategory === currentSupercategory) {
+        if (selectedRegions.has(r.region) && selectedSupercategories.has(r.supercategory)) {
           csvContent += `"${r.zip}","${r.county}","${r.region}","${r.supercategory}",${r.cases}\n`;
           count++;
         }
@@ -499,13 +660,81 @@ document.addEventListener('DOMContentLoaded', async () => {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `territory_allocation_${currentSupercategory.replace(/[^a-zA-Z0-9]/g, '_')}.csv`);
+    link.setAttribute('download', `territory_allocation_export.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   }
 
-  // Event Listeners
+  // Popover Toggle Listeners
+  if (scMsBtn) {
+    scMsBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      rgMsPopover.classList.remove('open');
+      rgMsBtn.classList.remove('open');
+      scMsPopover.classList.toggle('open');
+      scMsBtn.classList.toggle('open');
+    });
+  }
+
+  if (rgMsBtn) {
+    rgMsBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      scMsPopover.classList.remove('open');
+      scMsBtn.classList.remove('open');
+      rgMsPopover.classList.toggle('open');
+      rgMsBtn.classList.toggle('open');
+    });
+  }
+
+  // Close popovers on click outside
+  document.addEventListener('click', (e) => {
+    if (scMsPopover && !scMsPopover.contains(e.target) && !scMsBtn.contains(e.target)) {
+      scMsPopover.classList.remove('open');
+      scMsBtn.classList.remove('open');
+    }
+    if (rgMsPopover && !rgMsPopover.contains(e.target) && !rgMsBtn.contains(e.target)) {
+      rgMsPopover.classList.remove('open');
+      rgMsBtn.classList.remove('open');
+    }
+  });
+
+  // Select All / Clear All Multi-Select Handlers
+  if (scSelectAllBtn) {
+    scSelectAllBtn.addEventListener('click', () => {
+      selectedSupercategories = new Set(mapData.supercategories);
+      renderSupercategoryDropdown();
+      updateMapAndSidebar();
+    });
+  }
+
+  if (scClearAllBtn) {
+    scClearAllBtn.addEventListener('click', () => {
+      selectedSupercategories.clear();
+      renderSupercategoryDropdown();
+      updateMapAndSidebar();
+    });
+  }
+
+  if (rgSelectAllBtn) {
+    rgSelectAllBtn.addEventListener('click', () => {
+      selectedRegions = new Set(sortedRegionsList());
+      renderRegionDropdown();
+      renderSupercategoryDropdown();
+      updateMapAndSidebar();
+    });
+  }
+
+  if (rgClearAllBtn) {
+    rgClearAllBtn.addEventListener('click', () => {
+      selectedRegions.clear();
+      renderRegionDropdown();
+      renderSupercategoryDropdown();
+      updateMapAndSidebar();
+    });
+  }
+
+  // Preset Allocation Handler
   if (allocationSelectEl) {
     allocationSelectEl.addEventListener('change', (e) => {
       const val = e.target.value;
@@ -520,13 +749,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  if (supercategorySelectEl) {
-    supercategorySelectEl.addEventListener('change', (e) => {
-      currentSupercategory = e.target.value;
-      updateMapAndSidebar();
-    });
-  }
-
+  // View Mode Handlers
   if (btnModeTerritory && btnModeChoropleth) {
     btnModeTerritory.addEventListener('click', () => {
       currentViewMode = 'territory';
@@ -567,9 +790,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   btnCancelAllocation.addEventListener('click', () => {
     selectedCounties = new Set(presetMetro);
+    selectedSupercategories = new Set(mapData.supercategories);
+    selectedRegions = new Set(sortedRegionsList());
     if (allocationSelectEl) allocationSelectEl.value = 'metro';
-    if (supercategorySelectEl) supercategorySelectEl.value = 'ALL';
-    currentSupercategory = 'ALL';
+    renderSupercategoryDropdown();
+    renderRegionDropdown();
     updateMapAndSidebar();
   });
 

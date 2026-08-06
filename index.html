@@ -49,7 +49,7 @@
     <main class="main-content">
       <!-- Left Sidebar Control Panel -->
       <aside class="sidebar">
-        <!-- Allocation, Supercategory & State Selectors -->
+        <!-- Allocation Preset Selector -->
         <div class="form-group">
           <label for="allocation-select">Territory Preset</label>
           <select id="allocation-select">
@@ -60,16 +60,50 @@
           </select>
         </div>
 
+        <!-- Super Category Multi-Select Dropdown -->
         <div class="form-group">
-          <label for="supercategory-select">Legal Supercategory</label>
-          <select id="supercategory-select">
-            <option value="ALL">All Practice Areas (23,078 Cases)</option>
-            <option value="Family Law">Family Law (9,475 Cases)</option>
-            <option value="Employment and Labor Law">Employment & Labor Law (6,209 Cases)</option>
-            <option value="Wills, Trusts and Estates">Wills, Trusts & Estates (3,814 Cases)</option>
-            <option value="Bankruptcy, Banking and Credit">Bankruptcy & Credit (2,185 Cases)</option>
-            <option value="Business - Litigation">Business Litigation (1,395 Cases)</option>
-          </select>
+          <label>Allocation Super Category Name</label>
+          <div class="multiselect-dropdown" id="supercategory-ms">
+            <button class="ms-btn" type="button" id="supercategory-ms-btn">
+              <span class="ms-label" id="supercategory-ms-label">All Practice Areas (5)</span>
+              <svg class="ms-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="ms-popover" id="supercategory-ms-popover">
+              <div class="ms-popover-header">
+                <span class="ms-popover-title">Select Practice Areas</span>
+                <div class="ms-popover-actions">
+                  <button type="button" class="ms-action-link" id="sc-select-all">Select All</button> |
+                  <button type="button" class="ms-action-link" id="sc-clear-all">Clear All</button>
+                </div>
+              </div>
+              <div class="ms-popover-list" id="supercategory-ms-list">
+                <!-- Populated dynamically by app.js -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Region Name Multi-Select Dropdown -->
+        <div class="form-group">
+          <label>Region Name</label>
+          <div class="multiselect-dropdown" id="region-ms">
+            <button class="ms-btn" type="button" id="region-ms-btn">
+              <span class="ms-label" id="region-ms-label">All Regions (6)</span>
+              <svg class="ms-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="ms-popover" id="region-ms-popover">
+              <div class="ms-popover-header">
+                <span class="ms-popover-title">Select Regions</span>
+                <div class="ms-popover-actions">
+                  <button type="button" class="ms-action-link" id="rg-select-all">Select All</button> |
+                  <button type="button" class="ms-action-link" id="rg-clear-all">Clear All</button>
+                </div>
+              </div>
+              <div class="ms-popover-list" id="region-ms-list">
+                <!-- Populated dynamically by app.js -->
+              </div>
+            </div>
+          </div>
         </div>
 
         <div class="form-group">
@@ -83,8 +117,16 @@
         <div class="summary-card">
           <h3 class="summary-title">Territory Summary</h3>
           <div class="summary-row highlight-row">
-            <span>Est. Total Cases</span>
+            <span>Est. Combined Cases</span>
             <span class="summary-val highlight" id="sum-total-cases">17,455 / 23,078</span>
+          </div>
+          <div class="summary-row">
+            <span>Selected Categories</span>
+            <span class="summary-val" id="sum-categories-count">5 / 5 Areas</span>
+          </div>
+          <div class="summary-row">
+            <span>Selected Regions</span>
+            <span class="summary-val" id="sum-regions-count">6 / 6 Regions</span>
           </div>
           <div class="summary-row">
             <span>Selected Counties</span>
@@ -97,10 +139,6 @@
           <div class="summary-row">
             <span>ZIP Coverage</span>
             <span class="summary-val" id="sum-coverage">50.1%</span>
-          </div>
-          <div class="summary-row">
-            <span>Avg Cases / ZIP</span>
-            <span class="summary-val" id="sum-avg-cases">52.9</span>
           </div>
         </div>
 
